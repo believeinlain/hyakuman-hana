@@ -25,11 +25,12 @@ type FlowerDB = low.LowdbAsync<{flowers: FlowerInstance[]}>;
 import { v4 as uuidv4 } from 'uuid';
 
 // flower field
-import { FlowerField } from './flowerField';
-import { FlowerGenome, FlowerInstance } from '../common/flowerInstance';
-import { ServerParameters } from '../common/serverParameters';
+import { FlowerField } from '../common/flowerField';
+import { FlowerInstance } from '../common/flowerInstance';
+import { FlowerGenome } from '../common/flowerGenome';
+import { PositionUpdate, ServerParameters } from '../common/protocol';
 
-// Server parameters
+// Default server parameters
 const serverParameters: ServerParameters = {
   flowerRange: 25,
   flowerExclusionRange: 0.5,
@@ -38,37 +39,48 @@ const serverParameters: ServerParameters = {
   maxFlowerUpdates: 100
 }
 
-function addNewFlowers(flowers: FlowerInstance[], db: FlowerDB, field: FlowerField) {
-  let toRemove = new Array<string>();
-  flowers.forEach( (flower: FlowerInstance) => {
-    // add it to the database
-    db.get('flowers').push(flower).write();
-    // add it to the quadtree
-    toRemove.concat(field.addFlower(
-      flower.location.x, 
-      flower.location.y, 
-      flower.id, 
-      serverParameters.flowerExclusionRange
-    ));
-  });
-  toRemove.forEach( flowerID => {
-    io.sockets.emit('deleteFlower', flowerID);
-    db.get('flowers').remove({id: flowerID}).write();
-  });
-}
-
 // Asynchronously load database
 // TODO: backup database periodically
 low(adapter)
   .then( (db: low.LowdbAsync<{flowers: FlowerInstance[]}>) => {
     // wrapper for the quadtree of flowers
-    const flowerField = new FlowerField();
+    var flowerField = new FlowerField();
 
     // Load all of the flower ids into the quadtree
     let flowerarray = db.getState().flowers;
     if (flowerarray) {
       flowerarray.forEach( (flower: FlowerInstance) => {
         flowerField.addFlower(flower.location.x, flower.location.y, flower.id);
+      });
+    }
+
+    function addNewFlowers(flowers: FlowerInstance[], db: FlowerDB, field: FlowerField) {
+      let toRemove = new Array<string>();
+      flowers.forEach( (flower: FlowerInstance) => {
+        //console.log("Adding new flower");
+        // add it to the database
+        db.get('flowers').push(flower).write();
+        // add it to the quadtree
+        toRemove.push(...field.addFlower(
+          flower.location.x, 
+          flower.location.y, 
+          flower.id, 
+          serverParameters.flowerExclusionRange
+        ));
+      });
+      // send a list of names for flowers to remove
+      if (toRemove.length > 0) {
+        //console.log("Sent flowers to remove to client");
+        io.sockets.emit('deleteFlowers', toRemove);
+      } else {
+        //console.log("No flowers to remove");
+      }
+      
+      // remove all flowers to remove from the database and field
+      //console.log("Deleting flowers:", toRemove);
+      toRemove.forEach( flowerID => {
+        db.get('flowers').remove({id: flowerID}).write();
+        //field.removeFlower(flowerID);
       });
     }
 
@@ -85,10 +97,10 @@ low(adapter)
         // TODO: flowers can overlap if new angles are close - fix this
         if (rootInstance) {
           let newFlowers = new Array<FlowerInstance>();
+          let randomAngle = Math.random() * Math.PI * 2;
           for (let i=0; i<2; i++) {
-            let randomAngle = Math.random() * Math.PI * 2;
-            let offsetX = Math.cos(randomAngle)*serverParameters.flowerExclusionRange*1.1;
-            let offsetY = Math.sin(randomAngle)*serverParameters.flowerExclusionRange*1.1;
+            let offsetX = Math.cos(randomAngle+i*Math.PI/2)*serverParameters.flowerExclusionRange*1.1;
+            let offsetY = Math.sin(randomAngle+i*Math.PI/2)*serverParameters.flowerExclusionRange*1.1;
             let newInstance = new FlowerInstance(
               uuidv4(), 
               {
@@ -98,8 +110,10 @@ low(adapter)
               FlowerGenome.mutate(rootInstance.genome)
             );
             newFlowers.push(newInstance);
-            io.sockets.emit('newFlower', newInstance);
           }
+          // send instances for the flowers to send
+          io.sockets.emit('addFlowers', newFlowers);
+          // add new flowers to flowerfield and database and determine flowers to remove
           addNewFlowers(newFlowers, db, flowerField);
         }
       });
@@ -110,27 +124,29 @@ low(adapter)
       console.log("New connection from", socket.handshake.address, ", id:", socket.id);
       console.log("Total connections:", io.engine.clientsCount);
 
-      socket.emit('config', serverParameters);
+      socket.on('init', () => socket.emit('config', serverParameters));
   
       // on position update received from client, send all flower ids
       // around position within range, to load if necessary
-      socket.on('positionUpdate', (data: {x:number, y:number}) => {
-        //console.log("Received position update", data);
-        flowerField.getFlowersAroundPoint(data.x, data.y, serverParameters.flowerRange).forEach( 
-          (flowerID: string) => {
-            socket.emit('isFlowerLoaded', flowerID);
-          });
-      })
-  
-      // if we need to load a particular flower, fetch it from the database
-      socket.on('requestFlower', (flowerID: string) => {
-        //console.log("Received flower request", flowerID);
-        const flower = db.get('flowers').find({id: flowerID}).value();
-        socket.emit('sendFlower', flower);
+      socket.on('positionUpdate', (data: PositionUpdate) => {
+        console.log("Received position update", data.position);
+        let flowersToLoad = flowerField.getFlowersAroundPoint(
+          data.position.x, data.position.y, serverParameters.flowerRange);
+        // send only flowers that aren't loaded
+        let flowersToAdd = flowersToLoad.filter(flowerID => !data.loadedFlowerIDs.includes(flowerID));
+        // remove flowers that are loaded but shouldnt be
+        let flowersToRemove = data.loadedFlowerIDs.filter(flowerID => !flowersToLoad.includes(flowerID));
+        // send instances for the flowers to send
+        socket.emit('addFlowers', flowersToAdd.map(
+          flowerID => db.get('flowers').find({id: flowerID}).value()));
+        // send a list of names for flowers to remove
+        socket.emit('deleteFlowers', flowersToRemove);
       });
   
       // we just planted a new flower
       socket.on('plantFlower', (flower: FlowerInstance) => {
+        console.log("Client planted flower");
+        io.sockets.emit('addFlowers', [flower]);
         addNewFlowers([flower], db, flowerField);
       });
   

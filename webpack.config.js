@@ -1,4 +1,6 @@
 
+// webpack is used only for the client distribution
+
 const path = require('path');
 const fs = require("fs");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
@@ -42,7 +44,7 @@ module.exports = {
       {
         test: /\.js$/,
         exclude: [
-          '/src/server/'
+          path.resolve(appDirectory, 'src/server')
         ]
       }
     ]

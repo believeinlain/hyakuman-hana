@@ -9,7 +9,10 @@ import {
 } from "@babylonjs/core";
 
 export class Terrain {
-    constructor (scene: Scene) {
+
+    ground: Mesh;
+
+    constructor (scene: Scene, onReadyFunction: ()=>void ) {
         let options = {
             width: 1000,
             height: 1000, 
@@ -17,7 +20,10 @@ export class Terrain {
             minHeight: 0, 
             subdivisions: 200,
             updatable: true,
-            onReady: Terrain.onReady
+            onReady: () => {
+                this.ground.convertToFlatShadedMesh();
+                onReadyFunction();
+            }
         };
         this.ground = MeshBuilder.CreateGroundFromHeightMap(
             'terrain', 
@@ -35,11 +41,4 @@ export class Terrain {
             "./res/tex/hyakuman-terrain_metallicRoughness.png", scene);
         this.ground.material = material;
     }
-
-    // runs when the ground mesh has been generated from the heightmap
-    static onReady(mesh: GroundMesh) {
-        mesh.convertToFlatShadedMesh();
-    }
-
-    ground: Mesh;
 }

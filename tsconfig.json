@@ -1,3 +1,4 @@
+// tsconfig is used for the server distribution
 {
     "compilerOptions": {
         "target": "es5",

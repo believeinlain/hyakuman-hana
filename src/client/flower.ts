@@ -14,7 +14,8 @@ import {
     Ray
 } from "@babylonjs/core";
 
-import { Gene, FlowerGenome, FlowerInstance } from '../common/flowerInstance';
+import { FlowerGenome } from '../common/flowerGenome';
+import { FlowerInstance } from '../common/flowerInstance';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -122,7 +123,7 @@ export class Flower {
         let position = new Vector3(instance.location.x, 25, instance.location.y);
         let ray = new Ray(position, Vector3.Down(), 100);
         let pickInfo = scene.pickWithRay(ray, mesh => mesh.name == 'terrain');
-        if (pickInfo) {
+        if (pickInfo.hit) {
             position = pickInfo.pickedPoint.clone();
         } else {
             console.log("Warning: could not find terrain when placing flower");

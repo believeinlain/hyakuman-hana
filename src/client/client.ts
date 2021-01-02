@@ -15,19 +15,22 @@ import {
     Texture
 } from "@babylonjs/core";
 
-import { FlowerGenome, FlowerInstance } from '../common/flowerInstance';
+import { FlowerGenome } from '../common/flowerGenome';
+import { FlowerField } from '../common/flowerField';
+import { FlowerInstance } from '../common/flowerInstance';
+import { PositionUpdate, ServerParameters } from '../common/protocol';
 import { Flower } from "./flower";
 import { Terrain } from "./terrain";
 import { Player } from "./player";
 
 import io from 'socket.io-client'
 
-import { QuadTree, Box, Point, Circle} from 'js-quadtree';
-
 class App {
 
     player: Player;
-    serverParameters: any;
+    serverParameters: ServerParameters;
+    flowerField: FlowerField;
+    socket: SocketIOClient.Socket;
 
     constructor() {
         // create the canvas html element and attach it to the webpage
@@ -100,99 +103,80 @@ class App {
             }
         });
 
-        // make the terrain
-        let terrain = new Terrain(scene);
-
         // connect to the server
-        const socket = io("http://127.0.0.1:3000");
+        this.socket = io("http://127.0.0.1:3000");
 
-        socket.on('connect', () => {
-            socket.emit("positionUpdate", {x:0, y:0});
+        // send initial message on connecting
+        this.socket.on('connect', () => {
+            console.log("Connected to server");
+            this.socket.emit('init');
+        });
+        // update server parameters
+        this.socket.on('config', (data: ServerParameters) => {
+            console.log("Received config from server");
+            this.serverParameters = data;
+        });
+
+        // make the terrain
+        new Terrain(scene, ()=>{
+            // send position update once terrain is loaded
+            console.log("Terrain loaded");
+            let positionUpdate: PositionUpdate = {position: {x: 0, y: 0}, loadedFlowerIDs: []}
+            this.socket.emit('positionUpdate', positionUpdate);
+        });
+
+        // create new instances for each flower if necessary
+        this.socket.on('addFlowers', (flowers: FlowerInstance[]) => {
+            //console.log("Received flowers from server");
+            // add each flower to the field if not already there
+            flowers.forEach( (flower: FlowerInstance) => {
+                if (!this.flowerField.hasFlower(flower.id)) {
+                    console.log("Received new flower from server");
+                    new Flower(flower, scene);
+                    this.flowerField.addFlower(flower.location.x, flower.location.y, flower.id);
+                }
+            })
+        });
+        // if the server removes flowers, delete them
+        this.socket.on('deleteFlowers', (flowerIDs: string[]) => {
+            // remove each flower from scene
+            flowerIDs.forEach( (flowerID: string) => {
+                console.log("Deleted flower", flowerID);
+                scene.getMeshByName(flowerID).dispose();
+                this.flowerField.removeFlower(flowerID);
+            })
+        });
+        // let player create flowers
+        window.addEventListener("click", (event) => {
+            let pickResult = scene.pick(event.clientX, event.clientY);
+            if (pickResult.hit && pickResult.pickedMesh.name == 'terrain') {
+                let newFlower = Flower.createNewInstance(
+                    new FlowerGenome(), pickResult.pickedPoint, scene);
+                this.socket.emit('plantFlower', newFlower.instance);
+                this.flowerField.addFlower(
+                    newFlower.instance.location.x, 
+                    newFlower.instance.location.y, 
+                    newFlower.instance.id);
+            }
         });
 
         // quadtree to keep the flower ids in
-        // TODO: maybe store mesh references instead of ids for faster removal?
-        var quadtree = new QuadTree(new Box(-500, -500, 1000, 1000));
-
-        var updatePlayerPosition = () => {
-            let playerX = this.player.latestPositionUpdate.x;
-            let playerY = this.player.latestPositionUpdate.z; // x,y position on terrain uses z
-            socket.emit("positionUpdate", {x:playerX, y:playerY});
-
-            // remove all flowers loaded but no longer in range from scene
-            let allFlowers = quadtree.getAllPoints();
-            let flowersInRange = quadtree.query(new Circle(playerX, playerY, this.serverParameters.flowerRange));
-            let flowersNotInRange = allFlowers.filter( flower => !flowersInRange.includes(flower) );
-            quadtree.remove(flowersNotInRange);
-            flowersNotInRange.forEach( flower => {
-                let flowerMesh = scene.getMeshByName(flower.data);
-                if (flowerMesh) {
-                    flowerMesh.dispose();
-                } else {
-                    console.log("Flower", flower.data, "not found");
-                }
-            })
-        }
+        this.flowerField = new FlowerField();
 
         // run the main render loop
         engine.runRenderLoop(() => {
             scene.render();
 
-            // TODO: unload flowers out of range so we don't have memory leak
+            // send position updates periodically
             if (this.player.movedPastThreshold()) {
-                updatePlayerPosition();
-            }
-        });
-
-        // update server parameters
-        // TODO: initialize or something
-        socket.on('config', (data: any) => {
-            this.serverParameters = data;
-        });
-        // load flowers from server
-        socket.on('isFlowerLoaded', (flowerID: string) => {
-            if (scene.getMeshByName(flowerID) == null) {
-                socket.emit('requestFlower', flowerID);
-            }
-        });
-        // create new instances for each flower
-        socket.on('sendFlower', (flower: any) => {
-            let newFlower = new Flower(flower, scene);
-            let newPoint = new Point(flower.location.x, flower.location.y, flower.id);
-            quadtree.insert(newPoint);
-            newFlower.mesh.metadata = newPoint;
-        });
-        // remove flowers if the server tells us to
-        socket.on('deleteFlower', (flowerID: string) => {
-            let flowerToDelete = scene.getMeshByName(flowerID);
-            quadtree.remove(flowerToDelete.metadata);
-            flowerToDelete.dispose();
-        });
-        // if the server generates new flowers in range, add them
-        socket.on('newFlower', (flower: any) => {
-            if (this.player.isPointWithinRange(
-                    flower.location.x, 
-                    flower.location.y, 
-                    this.serverParameters.flowerRange)) {
-                let newFlower = new Flower(flower, scene);
-                let newPoint = new Point(flower.location.x, flower.location.y, flower.id);
-                quadtree.insert(newPoint);
-                newFlower.mesh.metadata = newPoint;
-            }
-        });
-
-        // let player create flowers
-        window.addEventListener("click", (event) => {
-            let pickResult = scene.pick(event.clientX, event.clientY);
-            if (pickResult.hit && pickResult.pickedMesh.name == 'terrain') {
-                let newFlower = Flower.createNewInstance(new FlowerGenome(), pickResult.pickedPoint, scene);
-                socket.emit('plantFlower', newFlower.instance);
-                let newPoint = new Point(
-                    newFlower.instance.location.x, 
-                    newFlower.instance.location.y, 
-                    newFlower.instance.id);
-                newFlower.mesh.metadata = newPoint;
-                quadtree.insert(newPoint);
+                let positionUpdate: PositionUpdate = {
+                    position: {
+                        x:this.player.latestPositionUpdate.x, 
+                        y:this.player.latestPositionUpdate.z // x,y position on terrain uses z
+                    },
+                    loadedFlowerIDs: this.flowerField.getAllFlowerIDs()
+                };
+                this.socket.emit('positionUpdate', positionUpdate);
             }
         });
 
