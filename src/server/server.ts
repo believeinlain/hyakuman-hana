@@ -1,5 +1,4 @@
 
-import { randomBytes } from 'crypto';
 import express from 'express';
 import http from 'http';
 const app = express();
@@ -17,7 +16,6 @@ app.use(express.static('public'));
 // Initialize database
 import low from 'lowdb';
 import FileAsync from 'lowdb/adapters/FileAsync';
-import { type } from 'os';
 import { Socket } from 'socket.io';
 const adapter = new FileAsync('db.json');
 type FlowerDB = low.LowdbAsync<{flowers: FlowerInstance[]}>;
@@ -35,8 +33,8 @@ const serverParameters: ServerParameters = {
   flowerRange: 25,
   flowerExclusionRange: 0.5,
   flowerSpreadInterval: 1000,
-  flowerSpreadFraction: 0.01,
-  maxFlowerUpdates: 100
+  flowerSpreadFraction: 1,
+  maxFlowerUpdates: 1
 }
 
 // Asynchronously load database
@@ -145,7 +143,7 @@ low(adapter)
   
       // we just planted a new flower
       socket.on('plantFlower', (flower: FlowerInstance) => {
-        console.log("Client planted flower");
+        //console.log("Client planted flower");
         io.sockets.emit('addFlowers', [flower]);
         addNewFlowers([flower], db, flowerField);
       });
@@ -163,5 +161,7 @@ low(adapter)
     server.listen(port, () => {
       return console.log(`server is listening on ${port}`);
     });
+  }).catch( () => {
+    console.log("Failed to load database");
   });
 

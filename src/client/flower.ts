@@ -26,9 +26,7 @@ class Petal {
     uvs: number[];
     mesh: Mesh;
 
-    static id = 0;
-
-    constructor (genome: FlowerGenome) {
+    constructor (genome: FlowerGenome, petalNum: number) {
         this.vertices = [0, 0, 0];
 
         let tip = new Vector3(0, 0, genome.petalLength.value);
@@ -84,8 +82,7 @@ class Petal {
         Vector2.One().toArray(this.uvs, 8); // center
 
         // Create unique name
-        let name = `petal${Petal.id}`;
-        Petal.id += 1;
+        let name = `petal${petalNum}`;
 
         // Create Babylon.js mesh
         this.mesh = new Mesh(name);
@@ -126,7 +123,7 @@ export class Flower {
         if (pickInfo.hit) {
             position = pickInfo.pickedPoint.clone();
         } else {
-            console.log("Warning: could not find terrain when placing flower");
+            console.log("ERROR: could not find terrain when placing flower");
         }
 
         let intNumPetals = Math.round(flowerGenome.numPetals.value);
@@ -135,7 +132,7 @@ export class Flower {
 
         let meshArray = [];
         for (let i=0; i<intNumPetals; i++) {
-            let petal = new Petal(flowerGenome);
+            let petal = new Petal(flowerGenome, i);
             let mesh = petal.mesh;
             mesh.rotate(Vector3.Right(), -angleClosed, Space.WORLD)
             mesh.rotate(Vector3.Up(), rotation*i, Space.WORLD);
@@ -167,7 +164,6 @@ export class Flower {
         for (let i=0; i<numStemVerts; i++) {
             stemColor.toArray(stemColorData, i*4);
         }
-        //stem.useVertexColors = true;
         stem.setVerticesData(VertexBuffer.ColorKind, stemColorData);
 
         let merged = Mesh.MergeMeshes(meshArray, true);

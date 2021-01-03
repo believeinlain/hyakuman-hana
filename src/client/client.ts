@@ -131,7 +131,7 @@ class App {
             // add each flower to the field if not already there
             flowers.forEach( (flower: FlowerInstance) => {
                 if (!this.flowerField.hasFlower(flower.id)) {
-                    console.log("Received new flower from server");
+                    //console.log("Received new flower from server");
                     new Flower(flower, scene);
                     this.flowerField.addFlower(flower.location.x, flower.location.y, flower.id);
                 }
@@ -142,8 +142,14 @@ class App {
             // remove each flower from scene
             flowerIDs.forEach( (flowerID: string) => {
                 console.log("Deleted flower", flowerID);
-                scene.getMeshByName(flowerID).dispose();
-                this.flowerField.removeFlower(flowerID);
+                let meshToRemove = scene.getMeshByName(flowerID);
+                if (meshToRemove) {
+                    meshToRemove.dispose();
+                    this.flowerField.removeFlower(flowerID);
+                } else if (this.flowerField.hasFlower(flowerID)) {
+                    console.log("Warning: flower mesh not found but still exists in field");
+                    this.flowerField.removeFlower(flowerID);
+                }
             })
         });
         // let player create flowers

@@ -137,9 +137,9 @@ export class FlowerGenome implements IRawParams {
   static mutate(genomeData: FlowerGenome): FlowerGenome {
     let newGenes: any = {};
     // mutate properties of type gene into newGenes
-    Object.getOwnPropertyNames(this).forEach( (propName: string) => {
+    Object.getOwnPropertyNames(genomeData).forEach( (propName: string) => {
       if (genomeData[propName] instanceof Gene) {
-        newGenes[propName] = Gene.mutate(genomeData[propName]);
+        newGenes[propName] = Gene.mutate(genomeData[propName]).value;
       }
     });
     // create a new genome from the mutated genes
@@ -149,9 +149,9 @@ export class FlowerGenome implements IRawParams {
   static copy(genomeData: FlowerGenome): FlowerGenome {
     let newGenes: any = {};
     // copy properties of type gene into newGenes
-    Object.getOwnPropertyNames(this).forEach( (propName: string) => {
+    Object.getOwnPropertyNames(genomeData).forEach( (propName: string) => {
       if (genomeData[propName] instanceof Gene) {
-        newGenes[propName] = Gene.copy(genomeData[propName]);
+        newGenes[propName] = Gene.copy(genomeData[propName]).value;
       }
     });
     // create a new genome from the mutated genes
