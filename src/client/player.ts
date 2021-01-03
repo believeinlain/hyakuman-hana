@@ -2,10 +2,15 @@
 import { 
     //ICameraInput,
     Scene,
+    Space,
     UniversalCamera,
     Vector2,
     Vector3
 } from "@babylonjs/core";
+import { FlowerGenome } from "../common/flowerGenome";
+import { FlowerInstance } from "../common/flowerInstance";
+
+import { Flower } from "./flower";
 
 // TODO: Actually implement custom camera controls
 // class FirstPersonCameraInput implements ICameraInput<UniversalCamera> {
@@ -28,6 +33,13 @@ import {
 // }
 
 export class Player {
+    
+    camera: UniversalCamera;
+    scene: Scene;
+    latestPositionUpdate: Vector3;
+    updateThreshold: number;
+    heldFlower: Flower;
+
     constructor (name: string, position: Vector3, scene: Scene) {
         this.camera = new UniversalCamera(name, position, scene);
         this.camera.applyGravity = true;
@@ -45,6 +57,10 @@ export class Player {
 
         this.latestPositionUpdate = position.clone();
         this.updateThreshold = 10.0;
+
+        this.heldFlower = new Flower(new FlowerInstance('heldFlower', {x:0, y:0}), scene);
+        this.heldFlower.mesh.setAbsolutePosition(position.add(new Vector3(0.5, -1.0, 2.0)));
+        this.heldFlower.mesh.setParent(this.camera);
     }
 
     movedPastThreshold(): boolean {
@@ -61,9 +77,4 @@ export class Player {
         let pt2 = new Vector2(this.camera.globalPosition.x, this.camera.globalPosition.z);
         return pt1.subtract(pt2).lengthSquared() < range**2;
     }
-
-    camera: UniversalCamera;
-    scene: Scene;
-    latestPositionUpdate: Vector3;
-    updateThreshold: number;
 }
