@@ -114,16 +114,30 @@ export class Flower {
 
     constructor(instance: FlowerInstance, scene: Scene) {
         this.instance = instance;
-        let flowerGenome = instance.genome;
 
-        // find the height to place the flower at
-        let position = new Vector3(instance.location.x, 25, instance.location.y);
+        let position = new Vector3(this.instance.location.x, 25, this.instance.location.y);
         let ray = new Ray(position, Vector3.Down(), 100);
         let pickInfo = scene.pickWithRay(ray, mesh => mesh.name == 'terrain');
         if (pickInfo.hit) {
             position = pickInfo.pickedPoint.clone();
         } else {
             console.log("ERROR: could not find terrain when placing flower");
+        }
+
+        this.regenerateFromGenome(instance.genome);
+
+        this.mesh.setAbsolutePosition(position);
+    }
+
+    regenerateFromGenome(flowerGenome: FlowerGenome) {
+        // update the genome
+        this.instance.genome = flowerGenome;
+
+        // remember current mesh position if applicable
+        let newTransform = null;
+        if (this.mesh) {
+            newTransform = this.mesh.getWorldMatrix();
+            this.mesh.dispose();
         }
 
         let intNumPetals = Math.round(flowerGenome.numPetals.value);
@@ -171,9 +185,21 @@ export class Flower {
         merged = Mesh.MergeMeshes([merged, stem], true);
         merged.scaling = Vector3.One().scale(0.2);
         merged.convertToFlatShadedMesh();
-        merged.setAbsolutePosition(position);
 
-        merged.name = instance.id;
+        merged.name = this.instance.id;
+        merged.metadata = this;
         this.mesh = merged;
+
+        // restore mesh position
+        if (newTransform) {
+            var quatRotation =  new Quaternion();
+            var position = new Vector3();
+            var scale = new Vector3();
+
+            newTransform.decompose(scale, quatRotation, position);
+
+            this.mesh.setAbsolutePosition(position);
+            this.mesh.rotationQuaternion = quatRotation;
+        }
     }
 };

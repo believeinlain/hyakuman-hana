@@ -162,14 +162,17 @@ class App {
         // let player create flowers
         window.addEventListener("click", (event) => {
             let pickResult = scene.pick(event.clientX, event.clientY);
-            if (pickResult.hit && pickResult.pickedMesh.name == 'terrain') {
-                let newFlower = Flower.createNewInstance(
-                    new FlowerGenome(), pickResult.pickedPoint, scene);
-                this.socket.emit('plantFlower', newFlower.instance);
-                this.flowerField.addFlower(
-                    newFlower.instance.location.x, 
-                    newFlower.instance.location.y, 
-                    newFlower.instance.id);
+            if (pickResult.hit) {
+                if (pickResult.pickedMesh.name == 'terrain') {
+                    let newFlower = this.player.plantFlower(pickResult.pickedPoint);
+                    this.socket.emit('plantFlower', newFlower.instance);
+                    this.flowerField.addFlower(
+                        newFlower.instance.location.x, 
+                        newFlower.instance.location.y, 
+                        newFlower.instance.id);
+                } else if (pickResult.pickedMesh.metadata instanceof Flower) {
+                    this.player.pickFlower(pickResult.pickedMesh.metadata.instance.genome);
+                }
             }
         });
 

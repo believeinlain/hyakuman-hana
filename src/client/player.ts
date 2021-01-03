@@ -63,6 +63,16 @@ export class Player {
         this.heldFlower.mesh.setParent(this.camera);
     }
 
+    plantFlower(point: Vector3): Flower {
+        // create a new flower instance with the genome of the held flower
+        return Flower.createNewInstance(this.heldFlower.instance.genome, point, this.scene);
+    }
+
+    pickFlower(genome: FlowerGenome) {
+        this.heldFlower.regenerateFromGenome(genome);
+        this.heldFlower.mesh.setParent(this.camera);
+    }
+
     movedPastThreshold(): boolean {
         let newPosition = this.camera.globalPosition;
         if (newPosition.subtract(this.latestPositionUpdate).lengthSquared() > this.updateThreshold) {

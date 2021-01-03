@@ -1,5 +1,6 @@
 
 import { QuadTree, Box, Point, Circle } from 'js-quadtree';
+import { FlowerInstance } from './flowerInstance';
 
 export class FlowerField {
     
