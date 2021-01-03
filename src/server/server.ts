@@ -32,7 +32,7 @@ import { PositionUpdate, ServerParameters } from '../common/protocol';
 const serverParameters: ServerParameters = {
   flowerRange: 25,
   flowerExclusionRange: 0.5,
-  flowerSpreadInterval: 1000,
+  flowerSpreadInterval: 10000,
   flowerSpreadFraction: 1,
   maxFlowerUpdates: 10
 }
@@ -139,7 +139,7 @@ low(adapter)
       // on position update received from client, send all flower ids
       // around position within range, to load if necessary
       socket.on('positionUpdate', (data: PositionUpdate) => {
-        console.log("Received position update", data.position);
+        //console.log("Received position update", data.position);
         let flowersToLoad = flowerField.getFlowersAroundPoint(
           data.position.x, data.position.y, serverParameters.flowerRange);
         // send only flowers that aren't loaded
