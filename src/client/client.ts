@@ -12,7 +12,8 @@ import {
     MeshBuilder,
     Space,
     StandardMaterial,
-    Texture
+    Texture,
+    Vector2
 } from "@babylonjs/core";
 
 import { FlowerGenome } from '../common/flowerGenome';
@@ -129,8 +130,14 @@ class App {
         this.socket.on('addFlowers', (flowers: FlowerInstance[]) => {
             //console.log("Received flowers from server");
             // add each flower to the field if not already there
+            // TODO: figure out what to do if we get flowers without serverParameters
             flowers.forEach( (flower: FlowerInstance) => {
-                if (!this.flowerField.hasFlower(flower.id)) {
+                // only add flowers within range of the player
+                let isWithinRange = this.player.isPointWithinRange(
+                    flower.location.x, 
+                    flower.location.y, 
+                    this.serverParameters.flowerRange);
+                if (isWithinRange && !this.flowerField.hasFlower(flower.id)) {
                     //console.log("Received new flower from server");
                     new Flower(flower, scene);
                     this.flowerField.addFlower(flower.location.x, flower.location.y, flower.id);
@@ -141,7 +148,7 @@ class App {
         this.socket.on('deleteFlowers', (flowerIDs: string[]) => {
             // remove each flower from scene
             flowerIDs.forEach( (flowerID: string) => {
-                console.log("Deleted flower", flowerID);
+                //console.log("Deleted flower", flowerID);
                 let meshToRemove = scene.getMeshByName(flowerID);
                 if (meshToRemove) {
                     meshToRemove.dispose();

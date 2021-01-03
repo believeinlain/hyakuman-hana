@@ -34,7 +34,46 @@ const serverParameters: ServerParameters = {
   flowerExclusionRange: 0.5,
   flowerSpreadInterval: 1000,
   flowerSpreadFraction: 1,
-  maxFlowerUpdates: 1
+  maxFlowerUpdates: 10
+}
+
+/* Randomize array in-place using Durstenfeld shuffle algorithm */
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+// add new flowers to the field and find flowers to delete
+function addNewFlowers(flowers: FlowerInstance[], db: FlowerDB, field: FlowerField) {
+  let toRemove = new Array<string>();
+  flowers.forEach( (flower: FlowerInstance) => {
+    //console.log("Adding new flower");
+    // add it to the database
+    db.get('flowers').push(flower).write();
+    // add it to the quadtree
+    toRemove.push(...field.addFlower(
+      flower.location.x, 
+      flower.location.y, 
+      flower.id, 
+      serverParameters.flowerExclusionRange
+    ));
+  });
+  // send a list of names for flowers to remove
+  if (toRemove.length > 0) {
+    //console.log("Sent flowers to remove to client");
+    io.sockets.emit('deleteFlowers', toRemove);
+  } else {
+    //console.log("No flowers to remove");
+  }
+  
+  // remove all flowers to remove from the database and field
+  //console.log("Deleting flowers:", toRemove);
+  toRemove.forEach( flowerID => {
+    db.get('flowers').remove({id: flowerID}).write();
+    //field.removeFlower(flowerID);
+  });
 }
 
 // Asynchronously load database
@@ -52,41 +91,14 @@ low(adapter)
       });
     }
 
-    function addNewFlowers(flowers: FlowerInstance[], db: FlowerDB, field: FlowerField) {
-      let toRemove = new Array<string>();
-      flowers.forEach( (flower: FlowerInstance) => {
-        //console.log("Adding new flower");
-        // add it to the database
-        db.get('flowers').push(flower).write();
-        // add it to the quadtree
-        toRemove.push(...field.addFlower(
-          flower.location.x, 
-          flower.location.y, 
-          flower.id, 
-          serverParameters.flowerExclusionRange
-        ));
-      });
-      // send a list of names for flowers to remove
-      if (toRemove.length > 0) {
-        //console.log("Sent flowers to remove to client");
-        io.sockets.emit('deleteFlowers', toRemove);
-      } else {
-        //console.log("No flowers to remove");
-      }
-      
-      // remove all flowers to remove from the database and field
-      //console.log("Deleting flowers:", toRemove);
-      toRemove.forEach( flowerID => {
-        db.get('flowers').remove({id: flowerID}).write();
-        //field.removeFlower(flowerID);
-      });
-    }
-
     // Set interval to spread flowers
     setInterval( () => {
       // select flowers to update
       let allFlowerIDs = flowerField.quadtree.getAllPoints().map(point => point.data);
       let rootSelection = allFlowerIDs.filter(id => Math.random() < serverParameters.flowerSpreadFraction);
+      // shuffle the update selection
+      shuffleArray(rootSelection);
+      // only update up to maxFlowerUpdates different flowers
       rootSelection = rootSelection.slice(0, serverParameters.maxFlowerUpdates);
       // spread
       rootSelection.forEach( flowerID => {
@@ -162,6 +174,6 @@ low(adapter)
       return console.log(`server is listening on ${port}`);
     });
   }).catch( () => {
-    console.log("Failed to load database");
+    console.log("Error: Failed to load database");
   });
 
