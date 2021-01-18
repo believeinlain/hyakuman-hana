@@ -75,13 +75,10 @@ const geneMutationParameters = {
 };
 
 class Gene {
-  public readonly name: string; // name of the gene
   public readonly value: number; // current value of the gene
   public readonly isLocked: boolean; // is the gene currently locked?
 
   constructor(name: string, value?: number, isLocked?: boolean) {
-    this.name = name;
-
     // get gene variance parameters
     let mutationParams = geneMutationParameters[name];
     let defaultParams = geneMutationParameters.default;
@@ -116,10 +113,10 @@ class Gene {
     }
   }
 
-  static mutate(geneData: Gene): Gene {
+  static mutate(geneData: Gene, name: string): Gene {
     //console.log("Mutated gene", geneData.name);
     // get gene variance parameters
-    let mutationParams = geneMutationParameters[geneData.name];
+    let mutationParams = geneMutationParameters[name];
     let defaultParams = geneMutationParameters.default;
     let min = mutationParams.min || defaultParams.min;
     let max = mutationParams.max || defaultParams.max;
@@ -148,11 +145,11 @@ class Gene {
       }
     }
     
-    return new Gene(geneData.name, newValue, newIsLocked);
+    return new Gene(name, newValue, newIsLocked);
   }
 
-  static copy(geneData: Gene): Gene {
-    return new Gene(geneData.name, geneData.value, geneData.isLocked);
+  static copy(geneData: Gene, name: string): Gene {
+    return new Gene(name, geneData.value, geneData.isLocked);
   }
 }
 
@@ -187,7 +184,7 @@ export class FlowerGenome implements GeneSequence {
     let newGenes: GeneSequence = {};
     // mutate properties of type gene into newGenes
     Object.getOwnPropertyNames(genomeData).forEach( (propName: string) => {
-      newGenes[propName] = Gene.mutate(genomeData[propName]);
+      newGenes[propName] = Gene.mutate(genomeData[propName], propName);
     });
     // create a new genome from the mutated genes
     return new FlowerGenome(newGenes);
@@ -197,7 +194,7 @@ export class FlowerGenome implements GeneSequence {
     let newGenes: GeneSequence = {};
     // copy properties of type gene into newGenes
     Object.getOwnPropertyNames(genomeData).forEach( (propName: string) => {
-      newGenes[propName] = Gene.copy(genomeData[propName]);
+      newGenes[propName] = Gene.copy(genomeData[propName], propName);
     });
     // create a new genome from the mutated genes
     return new FlowerGenome(newGenes);
