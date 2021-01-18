@@ -4,14 +4,18 @@ import FileAsync from 'lowdb/adapters/FileAsync';
 
 import { FlowerInstance } from "../common/flowerInstance";
 
+var backup = require('backup');
+
 type DatabaseStructure = {flowers: FlowerInstance[]};
 
 export class FlowerDatabaseInstance {
 
     database: low.LowdbAsync<DatabaseStructure>;
+    defaults: DatabaseStructure;
 
-    constructor(db: low.LowdbAsync<DatabaseStructure>) {
+    constructor(db: low.LowdbAsync<DatabaseStructure>, defaults) {
         this.database = db;
+        this.defaults = defaults;
     }
 
     getAllFlowers(): FlowerInstance[] {
@@ -45,22 +49,35 @@ export class FlowerDatabaseInstance {
             this.database.get('flowers').push(flower).write();
         });
     }
+
+    erase(): void {
+        this.database.setState(this.defaults);
+    }
+
+    // TODO: save database directory in object, not hardcoded here
+    save(filename: string): void {
+        backup.backup('./database/', `./${filename}`);
+    }
+
+    getDefaults(): DatabaseStructure {
+        return this.defaults;
+    }
 }
 
 export function OpenFlowerDatabase (
     filename: string,
     onReady: (db: FlowerDatabaseInstance)=>void,
     onFinished: ()=>void,
-    defaultContents: ()=>DatabaseStructure
+    defaultContents: DatabaseStructure
 ) {
     let adapter = new FileAsync(filename);
     low(adapter)
         .then( async (db: low.LowdbAsync<DatabaseStructure>) => {
-            onReady(new FlowerDatabaseInstance(db));
+            onReady(new FlowerDatabaseInstance(db, defaultContents));
 
             // Set db default values
             try {
-                return db.defaults(defaultContents()).write();
+                return db.defaults(defaultContents).write();
             } catch (e) {
                 console.log("Error: Failed to initialize database");
             }

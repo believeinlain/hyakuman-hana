@@ -11,6 +11,9 @@ const io = require('socket.io')(server, {
 });
 const port = 3000;
 
+// Interactive CLI for server
+var vorpal = require('vorpal')();
+
 app.use(express.static('public'));
 
 import { Socket } from 'socket.io';
@@ -66,8 +69,12 @@ function addNewFlowers(flowers: FlowerInstance[], db: FlowerDatabaseInstance, fi
   db.removeFlowers(toRemove);
 }
 
-OpenFlowerDatabase('db.json', (db: FlowerDatabaseInstance) => {
+// global database for access by CLI
+var flowerDatabase: FlowerDatabaseInstance = null;
+
+OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => {
   console.log("database is ready");
+  flowerDatabase = db;
 
   // wrapper for the quadtree of flowers
   var flowerField = new FlowerField();
@@ -155,8 +162,29 @@ OpenFlowerDatabase('db.json', (db: FlowerDatabaseInstance) => {
   server.listen(port, () => {
     return console.log(`server is listening on ${port}`);
   });
-}, ()=> {
-  console.log("loading default database");
-  // initial database contents
-  return { flowers: [] };
-});
+  
+},
+  // database default contents
+  { flowers: [] }
+);
+
+// Initiate interactive CLI
+vorpal
+  .command('erase', 'Erase flower database and reset.')
+  .action(function(args, callback) {
+    if (flowerDatabase) {
+      flowerDatabase.erase();
+      this.log('Flower database wiped.');
+    }
+    callback();
+  });
+vorpal
+  .command('backup', 'Save a copy of the database with date and time.')
+  .action(function(args, callback) {
+    if (flowerDatabase) {
+      flowerDatabase.save('database.backup');
+      this.log('Flower database backed up.');
+    }
+    callback();
+  });
+vorpal.delimiter('server$').show();
