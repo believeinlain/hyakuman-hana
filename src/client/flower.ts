@@ -15,7 +15,7 @@ import {
 } from "@babylonjs/core";
 
 import { FlowerGenome } from '../common/flowerGenome';
-import { FlowerInstance } from '../common/flowerInstance';
+import { FlowerPacket } from '../common/flowerPacket';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -100,106 +100,136 @@ class Petal {
     }
 }
   
+export const FlowerGeometry: any = {
+    petalBase: {
+        shape: [
+            new Vector3(0.0, 0.0, 0.0),
+            new Vector3(0.5, 0.0, 0.5),
+            new Vector3(0.5, 0.0, -0.5)
+        ]
+    },
+    petalTip: {
+        shape: [
+            new Vector3(0.5, 0.0, 0.5),
+            new Vector3(1.0, 0.0, 0.0),
+            new Vector3(0.5, 0.0, 0.5)
+        ]
+    },
+    stem: {
+        shape: [
+            new Vector3(0.05, 0.05, 0.0), 
+            new Vector3(-0.05, 0.05, 0.0), 
+            new Vector3(0.0, -0.05, 0.0), 
+            new Vector3(0.05, 0.05, 0.0)
+        ],
+        path: [
+            Vector3.Zero(), 
+            new Vector3(0.1, 0.5, 0.0),
+            new Vector3(0.0, 1.0, 0.0)
+        ],
+    }
+}
+
 export class Flower {
-    mesh: Mesh;
-    instance: FlowerInstance;
+    info: FlowerPacket;
+
+    rootPosition: Vector3;
+    stemIndex: number;
   
     static createNewInstance(genome: FlowerGenome, position: Vector3, scene: Scene) {
-        let newInstance = new FlowerInstance(
+        let newInstance = new FlowerPacket(
             uuidv4(), 
             {x:position.x, y:position.z}, 
             genome);
         return new Flower(newInstance, scene);
     }
 
-    constructor(instance: FlowerInstance, scene: Scene) {
-        this.instance = instance;
+    constructor(info: FlowerPacket, scene: Scene) {
+        this.info = info;
 
-        let position = new Vector3(this.instance.location.x, 25, this.instance.location.y);
-        let ray = new Ray(position, Vector3.Down(), 100);
+        this.rootPosition = new Vector3(this.info.location.x, 25, this.info.location.y);
+        let ray = new Ray(this.rootPosition, Vector3.Down(), 100);
         let pickInfo = scene.pickWithRay(ray, mesh => mesh.name == 'terrain');
         if (pickInfo.hit) {
-            position = pickInfo.pickedPoint.clone();
+            this.rootPosition = pickInfo.pickedPoint.clone();
         } else {
             console.log("ERROR: could not find terrain when placing flower");
         }
 
-        this.regenerateFromGenome(instance.genome);
-
-        this.mesh.setAbsolutePosition(position);
+        this.regenerateFromGenome(info.genome);
     }
 
     regenerateFromGenome(flowerGenome: FlowerGenome) {
-        // update the genome
-        this.instance.genome = flowerGenome;
+        // // update the genome
+        // this.info.genome = flowerGenome;
 
-        // remember current mesh position if applicable
-        let newTransform = null;
-        if (this.mesh) {
-            newTransform = this.mesh.getWorldMatrix();
-            this.mesh.dispose();
-        }
+        // // remember current mesh position if applicable
+        // let newTransform = null;
+        // if (this.mesh) {
+        //     newTransform = this.mesh.getWorldMatrix();
+        //     this.mesh.dispose();
+        // }
 
-        let intNumPetals = Math.round(flowerGenome.numPetals.value);
-        let rotation = Math.PI * 2 / intNumPetals;
-        let angleClosed = Math.PI / 2 * flowerGenome.flowerClosed.value;
+        // let intNumPetals = Math.round(flowerGenome.numPetals.value);
+        // let rotation = Math.PI * 2 / intNumPetals;
+        // let angleClosed = Math.PI / 2 * flowerGenome.flowerClosed.value;
 
-        let meshArray = [];
-        for (let i=0; i<intNumPetals; i++) {
-            let petal = new Petal(flowerGenome, i);
-            let mesh = petal.mesh;
-            mesh.rotate(Vector3.Right(), -angleClosed, Space.WORLD)
-            mesh.rotate(Vector3.Up(), rotation*i, Space.WORLD);
+        // let meshArray = [];
+        // for (let i=0; i<intNumPetals; i++) {
+        //     let petal = new Petal(flowerGenome, i);
+        //     let mesh = petal.mesh;
+        //     mesh.rotate(Vector3.Right(), -angleClosed, Space.WORLD)
+        //     mesh.rotate(Vector3.Up(), rotation*i, Space.WORLD);
 
-            let petalScale = flowerGenome.petalSize.value;
-            if (i == 0) petalScale *= flowerGenome.firstPetalSize.value;
+        //     let petalScale = flowerGenome.petalSize.value;
+        //     if (i == 0) petalScale *= flowerGenome.firstPetalSize.value;
             
-            mesh.scaling = Vector3.One().scale(petalScale);
+        //     mesh.scaling = Vector3.One().scale(petalScale);
 
-            meshArray.push(mesh);
-        }
+        //     meshArray.push(mesh);
+        // }
 
-        let stemColor = new Color4(0.1, 0.8, 0.1, 1);
-        let stemColorData = [];
-        let stem = MeshBuilder.ExtrudeShapeCustom('stem', {
-            shape: [
-                new Vector3(flowerGenome.stemThickness.value, flowerGenome.stemThickness.value), 
-                new Vector3(-flowerGenome.stemThickness.value, flowerGenome.stemThickness.value), 
-                new Vector3(0, -flowerGenome.stemThickness.value), 
-                new Vector3(flowerGenome.stemThickness.value, flowerGenome.stemThickness.value)
-            ],
-            path: [
-                Vector3.Zero(), 
-                new Vector3(0.1, flowerGenome.stemLength.value/2, 0),
-                new Vector3(0, flowerGenome.stemLength.value, 0)
-            ],
-        });
-        let numStemVerts = stem.getVerticesData(VertexBuffer.PositionKind).length / 3;
-        for (let i=0; i<numStemVerts; i++) {
-            stemColor.toArray(stemColorData, i*4);
-        }
-        stem.setVerticesData(VertexBuffer.ColorKind, stemColorData);
+        // let stemColor = new Color4(0.1, 0.8, 0.1, 1);
+        // let stemColorData = [];
+        // let stem = MeshBuilder.ExtrudeShapeCustom('stem', {
+        //     shape: [
+        //         new Vector3(flowerGenome.stemThickness.value, flowerGenome.stemThickness.value), 
+        //         new Vector3(-flowerGenome.stemThickness.value, flowerGenome.stemThickness.value), 
+        //         new Vector3(0, -flowerGenome.stemThickness.value), 
+        //         new Vector3(flowerGenome.stemThickness.value, flowerGenome.stemThickness.value)
+        //     ],
+        //     path: [
+        //         Vector3.Zero(), 
+        //         new Vector3(0.1, flowerGenome.stemLength.value/2, 0),
+        //         new Vector3(0, flowerGenome.stemLength.value, 0)
+        //     ],
+        // });
+        // let numStemVerts = stem.getVerticesData(VertexBuffer.PositionKind).length / 3;
+        // for (let i=0; i<numStemVerts; i++) {
+        //     stemColor.toArray(stemColorData, i*4);
+        // }
+        // stem.setVerticesData(VertexBuffer.ColorKind, stemColorData);
 
-        let merged = Mesh.MergeMeshes(meshArray, true);
-        merged.translate(Vector3.Up(), flowerGenome.stemLength.value);
-        merged = Mesh.MergeMeshes([merged, stem], true);
-        merged.scaling = Vector3.One().scale(0.2);
-        merged.convertToFlatShadedMesh();
+        // let merged = Mesh.MergeMeshes(meshArray, true);
+        // merged.translate(Vector3.Up(), flowerGenome.stemLength.value);
+        // merged = Mesh.MergeMeshes([merged, stem], true);
+        // merged.scaling = Vector3.One().scale(0.2);
+        // merged.convertToFlatShadedMesh();
 
-        merged.name = this.instance.id;
-        merged.metadata = this;
-        this.mesh = merged;
+        // merged.name = this.info.id;
+        // merged.metadata = this;
+        // this.mesh = merged;
 
-        // restore mesh position
-        if (newTransform) {
-            var quatRotation =  new Quaternion();
-            var position = new Vector3();
-            var scale = new Vector3();
+        // // restore mesh position
+        // if (newTransform) {
+        //     var quatRotation =  new Quaternion();
+        //     var position = new Vector3();
+        //     var scale = new Vector3();
 
-            newTransform.decompose(scale, quatRotation, position);
+        //     newTransform.decompose(scale, quatRotation, position);
 
-            this.mesh.setAbsolutePosition(position);
-            this.mesh.rotationQuaternion = quatRotation;
-        }
+        //     this.mesh.setAbsolutePosition(position);
+        //     this.mesh.rotationQuaternion = quatRotation;
+        // }
     }
 };

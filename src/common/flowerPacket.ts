@@ -2,7 +2,8 @@
 import { FlowerGenome } from './flowerGenome'
 
 // Used to store flowers in a database to be loaded later
-export class FlowerInstance {
+// and send flowers between client and server
+export class FlowerPacket {
     genome: FlowerGenome;
     id: string;
     location: {x:number, y:number}; // (x, y) position on terrain

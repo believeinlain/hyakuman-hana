@@ -2,11 +2,11 @@
 import low from 'lowdb';
 import FileAsync from 'lowdb/adapters/FileAsync';
 
-import { FlowerInstance } from "../common/flowerInstance";
+import { FlowerPacket } from "../common/flowerPacket";
 
 var backup = require('backup');
 
-type DatabaseStructure = {flowers: FlowerInstance[]};
+type DatabaseStructure = {flowers: FlowerPacket[]};
 
 export class FlowerDatabaseInstance {
 
@@ -18,18 +18,18 @@ export class FlowerDatabaseInstance {
         this.defaults = defaults;
     }
 
-    getAllFlowers(): FlowerInstance[] {
-        let allFlowers = new Array<FlowerInstance>();
+    getAllFlowers(): FlowerPacket[] {
+        let allFlowers = new Array<FlowerPacket>();
         allFlowers.push(...this.database.getState().flowers);
         return allFlowers;
     }
 
-    getFlower(flowerID: string): FlowerInstance {
+    getFlower(flowerID: string): FlowerPacket {
         return this.database.get('flowers').find({id: flowerID}).value();
     }
 
-    getFlowers(flowerIDs: string[]): FlowerInstance[] {
-        let selection = new Array<FlowerInstance>();
+    getFlowers(flowerIDs: string[]): FlowerPacket[] {
+        let selection = new Array<FlowerPacket>();
         flowerIDs.forEach( flowerID => {
             selection.push(this.getFlower(flowerID));
         });
@@ -42,9 +42,9 @@ export class FlowerDatabaseInstance {
         });
     }
 
-    addFlowers(flowers: FlowerInstance[]): void {
+    addFlowers(flowers: FlowerPacket[]): void {
         // for each flower
-        flowers.forEach( (flower: FlowerInstance) => {
+        flowers.forEach( (flower: FlowerPacket) => {
             // add it to the database
             this.database.get('flowers').push(flower).write();
         });

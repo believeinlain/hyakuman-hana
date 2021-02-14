@@ -21,9 +21,8 @@ import { FlowerDatabaseInstance, OpenFlowerDatabase } from './flowerDatabase'
 
 import { v4 as uuidv4 } from 'uuid';
 
-// flower field
-import { FlowerField } from '../common/flowerField';
-import { FlowerInstance } from '../common/flowerInstance';
+import { FlowerLocations } from '../common/flowerLocations';
+import { FlowerPacket } from '../common/flowerPacket';
 import { FlowerGenome } from '../common/flowerGenome';
 import { PositionUpdate, ServerParameters } from '../common/protocol';
 
@@ -45,20 +44,12 @@ function shuffleArray(array: any[]) {
 }
 
 // add new flowers to the field and find flowers to delete
-function addNewFlowers(flowers: FlowerInstance[], db: FlowerDatabaseInstance, field: FlowerField) {
+function addNewFlowers(flowers: FlowerPacket[], db: FlowerDatabaseInstance, field: FlowerLocations) {
   
   // add them to the database
   db.addFlowers(flowers);
   // add them to the quadtree
-  let toRemove = new Array<string>();
-  flowers.forEach( (flower: FlowerInstance) => {
-    toRemove.push(...field.addFlower(
-      flower.location.x, 
-      flower.location.y, 
-      flower.id, 
-      serverParameters.flowerExclusionRange
-    ));
-  });
+  let toRemove = field.addFlowers(flowers, serverParameters.flowerExclusionRange);
 
   // send a list of names for flowers to remove
   if (toRemove.length > 0) {
@@ -77,12 +68,10 @@ OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => {
   flowerDatabase = db;
 
   // wrapper for the quadtree of flowers
-  var flowerField = new FlowerField();
+  var flowerField = new FlowerLocations();
 
   // Load all of the flower ids into the quadtree
-  db.getAllFlowers().forEach( (flower: FlowerInstance) => {
-    flowerField.addFlower(flower.location.x, flower.location.y, flower.id);
-  });
+  flowerField.addFlowers(db.getAllFlowers());
 
   // Set interval to spread flowers
   setInterval( () => {
@@ -99,12 +88,12 @@ OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => {
       // create two new flowers for each
       // TODO: flowers can overlap if new angles are close - fix this
       if (rootInstance) {
-        let newFlowers = new Array<FlowerInstance>();
+        let newFlowers = new Array<FlowerPacket>();
         let randomAngle = Math.random() * Math.PI * 2;
         for (let i=0; i<2; i++) {
           let offsetX = Math.cos(randomAngle+i*Math.PI/2)*serverParameters.flowerExclusionRange*1.1;
           let offsetY = Math.sin(randomAngle+i*Math.PI/2)*serverParameters.flowerExclusionRange*1.1;
-          let newInstance = new FlowerInstance(
+          let newInstance = new FlowerPacket(
             uuidv4(), 
             {
               x: rootInstance.location.x+offsetX,
@@ -146,7 +135,7 @@ OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => {
     });
 
     // we just planted a new flower
-    socket.on('plantFlower', (flower: FlowerInstance) => {
+    socket.on('plantFlower', (flower: FlowerPacket) => {
       //console.log("Client planted flower");
       io.sockets.emit('addFlowers', [flower]);
       addNewFlowers([flower], db, flowerField);

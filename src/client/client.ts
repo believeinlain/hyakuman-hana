@@ -17,8 +17,8 @@ import {
 } from "@babylonjs/core";
 
 import { FlowerGenome } from '../common/flowerGenome';
-import { FlowerField } from '../common/flowerField';
-import { FlowerInstance } from '../common/flowerInstance';
+import { FlowerField } from './flowerField';
+import { FlowerPacket } from '../common/flowerPacket';
 import { PositionUpdate, ServerParameters } from '../common/protocol';
 import { Flower } from "./flower";
 import { Terrain } from "./terrain";
@@ -127,57 +127,35 @@ class App {
         });
 
         // create new instances for each flower if necessary
-        this.socket.on('addFlowers', (flowers: FlowerInstance[]) => {
-            //console.log("Received flowers from server");
-            // add each flower to the field if not already there
+        this.socket.on('addFlowers', (flowers: FlowerPacket[]) => {
+            // add each flower in range of player to the field
             // TODO: figure out what to do if we get flowers without serverParameters
-            flowers.forEach( (flower: FlowerInstance) => {
-                // only add flowers within range of the player
-                let isWithinRange = this.player.isPointWithinRange(
-                    flower.location.x, 
-                    flower.location.y, 
-                    this.serverParameters.flowerRange);
-                if (isWithinRange && !this.flowerField.hasFlower(flower.id)) {
-                    //console.log("Received new flower from server");
-                    new Flower(flower, scene);
-                    this.flowerField.addFlower(flower.location.x, flower.location.y, flower.id);
-                }
-            })
+            this.flowerField.addFlowers(flowers);
         });
         // if the server removes flowers, delete them
         this.socket.on('deleteFlowers', (flowerIDs: string[]) => {
             // remove each flower from scene
-            flowerIDs.forEach( (flowerID: string) => {
-                //console.log("Deleted flower", flowerID);
-                let meshToRemove = scene.getMeshByName(flowerID);
-                if (meshToRemove) {
-                    meshToRemove.dispose();
-                    this.flowerField.removeFlower(flowerID);
-                } else if (this.flowerField.hasFlower(flowerID)) {
-                    console.log("Warning: flower mesh not found but still exists in field");
-                    this.flowerField.removeFlower(flowerID);
-                }
-            })
+            this.flowerField.removeFlowers(flowerIDs);
         });
         // let player create flowers
-        window.addEventListener("click", (event) => {
-            let pickResult = scene.pick(event.clientX, event.clientY);
-            if (pickResult.hit) {
-                if (pickResult.pickedMesh.name == 'terrain') {
-                    let newFlower = this.player.plantFlower(pickResult.pickedPoint);
-                    this.socket.emit('plantFlower', newFlower.instance);
-                    this.flowerField.addFlower(
-                        newFlower.instance.location.x, 
-                        newFlower.instance.location.y, 
-                        newFlower.instance.id);
-                } else if (pickResult.pickedMesh.metadata instanceof Flower) {
-                    this.player.pickFlower(pickResult.pickedMesh.metadata.instance.genome);
-                }
-            }
-        });
+        // window.addEventListener("click", (event) => {
+        //     let pickResult = scene.pick(event.clientX, event.clientY);
+        //     if (pickResult.hit) {
+        //         if (pickResult.pickedMesh.name == 'terrain') {
+        //             let newFlower = this.player.plantFlower(pickResult.pickedPoint);
+        //             this.socket.emit('plantFlower', newFlower.instance);
+        //             this.flowerField.addFlower(
+        //                 newFlower.instance.location.x, 
+        //                 newFlower.instance.location.y, 
+        //                 newFlower.instance.id);
+        //         } else if (pickResult.pickedMesh.metadata instanceof Flower) {
+        //             this.player.pickFlower(pickResult.pickedMesh.metadata.instance.genome);
+        //         }
+        //     }
+        // });
 
         // quadtree to keep the flower ids in
-        this.flowerField = new FlowerField();
+        this.flowerField = new FlowerField(scene);
 
         // run the main render loop
         engine.runRenderLoop(() => {
