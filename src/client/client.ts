@@ -138,21 +138,18 @@ class App {
             this.flowerField.removeFlowers(flowerIDs);
         });
         // let player create flowers
-        // window.addEventListener("click", (event) => {
-        //     let pickResult = scene.pick(event.clientX, event.clientY);
-        //     if (pickResult.hit) {
-        //         if (pickResult.pickedMesh.name == 'terrain') {
-        //             let newFlower = this.player.plantFlower(pickResult.pickedPoint);
-        //             this.socket.emit('plantFlower', newFlower.instance);
-        //             this.flowerField.addFlower(
-        //                 newFlower.instance.location.x, 
-        //                 newFlower.instance.location.y, 
-        //                 newFlower.instance.id);
-        //         } else if (pickResult.pickedMesh.metadata instanceof Flower) {
-        //             this.player.pickFlower(pickResult.pickedMesh.metadata.instance.genome);
-        //         }
-        //     }
-        // });
+        window.addEventListener("click", (event) => {
+            let pickResult = scene.pick(event.clientX, event.clientY);
+            if (pickResult.hit) {
+                if (pickResult.pickedMesh.name == 'terrain') {
+                    let newFlower = this.player.plantFlower(pickResult.pickedPoint);
+                    this.socket.emit('plantFlower', newFlower.info);
+                    this.flowerField.addFlowers([newFlower.info]);
+                } else if (pickResult.pickedMesh.metadata instanceof Flower) {
+                    this.player.pickFlower(pickResult.pickedMesh.metadata.info.genome);
+                }
+            }
+        });
 
         // quadtree to keep the flower ids in
         this.flowerField = new FlowerField(scene);

@@ -5,10 +5,10 @@ import {
     Vector2,
     Vector3
 } from "@babylonjs/core";
-// import { FlowerGenome } from "../common/flowerGenome";
-// import { FlowerPacket } from "../common/flowerPacket";
+import { FlowerGenome } from "../common/flowerGenome";
+import { FlowerPacket } from "../common/flowerPacket";
 
-// import { Flower } from "./flower";
+import { Flower } from "./flower";
 
 // TODO: Actually implement custom camera controls
 // class FirstPersonCameraInput implements ICameraInput<UniversalCamera> {
@@ -36,7 +36,7 @@ export class Player {
     scene: Scene;
     latestPositionUpdate: Vector3;
     updateThreshold: number;
-    // heldFlower: Flower;
+    heldFlower: Flower;
 
     constructor (name: string, position: Vector3, scene: Scene) {
         this.camera = new UniversalCamera(name, position, scene);
@@ -56,20 +56,20 @@ export class Player {
         this.latestPositionUpdate = position.clone();
         this.updateThreshold = 10.0;
 
-        // this.heldFlower = new Flower(new FlowerPacket('heldFlower', {x:0, y:0}), scene);
-        // this.heldFlower.mesh.setAbsolutePosition(position.add(new Vector3(0.5, -1.0, 2.0)));
-        // this.heldFlower.mesh.setParent(this.camera);
+        this.heldFlower = new Flower(new FlowerPacket('heldFlower', {x:0, y:0}), scene);
+        this.heldFlower.mesh.setAbsolutePosition(position.add(new Vector3(0.5, -1.0, 2.0)));
+        this.heldFlower.mesh.setParent(this.camera);
     }
 
-    // plantFlower(point: Vector3): Flower {
-    //     // create a new flower instance with the genome of the held flower
-    //     return Flower.createNewInstance(this.heldFlower.instance.genome, point, this.scene);
-    // }
+    plantFlower(point: Vector3): Flower {
+        // create a new flower instance with the genome of the held flower
+        return Flower.spawnFromGenome(this.heldFlower.info.genome, point, this.scene);
+    }
 
-    // pickFlower(genome: FlowerGenome) {
-    //     this.heldFlower.regenerateFromGenome(genome);
-    //     this.heldFlower.mesh.setParent(this.camera);
-    // }
+    pickFlower(genome: FlowerGenome) {
+        this.heldFlower.regenerateFromGenome(genome);
+        this.heldFlower.mesh.setParent(this.camera);
+    }
 
     movedPastThreshold(): boolean {
         let newPosition = this.camera.globalPosition;
