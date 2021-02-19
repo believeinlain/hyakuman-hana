@@ -1,0 +1,30 @@
+
+Store:
+    - flower IDs currently loaded
+    - flower meshes in scenegraph for picking
+    - flower objects by ID
+    - flower dist**2 from player
+
+update = {
+    location: (x, y),
+    radius: r,
+    last_update_from_server: (t, r)
+}
+Send update to server with {
+    location, 
+    radius (based on client performance),
+    time/location of last update from server,
+    flag to ask for a full update if desired
+} when location or time changes
+
+flower garbage collection by distance from player {
+    - delete some flowers outside of radius periodically
+    - sort by distance when last checked
+}
+
+plant flower {
+    - plant flower and find flowers to displace
+    - use babylonjs BB collision detection
+        (we need it to pick anyway)
+    - send planted flower and displaced flower ids to server
+}

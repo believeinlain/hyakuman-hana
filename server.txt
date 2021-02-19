@@ -1,0 +1,13 @@
+
+Store: 
+    - genome for each flower by UUID
+    - flower UUID by location in quadtree
+    - flower update time by UUID
+    - flower mesh generated from genome
+
+On update from client:
+    - get flowers within client new radius
+    - remove flowers within last radius 
+        not updated after time from client
+    - send flower meshes and IDs to client
+    

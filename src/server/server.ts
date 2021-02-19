@@ -24,10 +24,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { FlowerLocations } from '../common/flowerLocations';
 import { FlowerPacket } from '../common/flowerPacket';
 import { FlowerGenome } from '../common/flowerGenome';
-import { PositionUpdate, ServerParameters } from '../common/protocol';
+import * as protocol from '../common/protocol';
 
 // Default server parameters
-const serverParameters: ServerParameters = {
+const serverParameters = {
   flowerRange: 25,
   flowerExclusionRange: 0.5,
   flowerSpreadInterval: 10000,
@@ -63,8 +63,9 @@ function addNewFlowers(flowers: FlowerPacket[], db: FlowerDatabaseInstance, fiel
 // global database for access by CLI
 var flowerDatabase: FlowerDatabaseInstance = null;
 
-OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => {
-  console.log("database is ready");
+OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => 
+{
+  console.log("\rDatabase is ready.");
   flowerDatabase = db;
 
   // wrapper for the quadtree of flowers
@@ -113,33 +114,27 @@ OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => {
 
   // handle client connections once db is loaded
   io.on('connection', (socket: Socket) => {
+    // new client has connected
     console.log("New connection from", socket.handshake.address, ", id:", socket.id);
     console.log("Total connections:", io.engine.clientsCount);
 
-    socket.on('init', () => socket.emit('config', serverParameters));
-
-    // on position update received from client, send all flower ids
-    // around position within range, to load if necessary
-    socket.on('positionUpdate', (data: PositionUpdate) => {
-      //console.log("Received position update", data.position);
-      let flowersToLoad = flowerField.getFlowersAroundPoint(
-        data.position.x, data.position.y, serverParameters.flowerRange);
-      // send only flowers that aren't loaded
-      let flowersToAdd = flowersToLoad.filter(flowerID => !data.loadedFlowerIDs.includes(flowerID));
-      // remove flowers that are loaded but shouldnt be
-      let flowersToRemove = data.loadedFlowerIDs.filter(flowerID => !flowersToLoad.includes(flowerID));
-      // send instances for the flowers to send
-      socket.emit('addFlowers', db.getFlowers(flowersToAdd));
-      // send a list of names for flowers to remove
-      socket.emit('deleteFlowers', flowersToRemove);
-    });
-
-    // we just planted a new flower
-    socket.on('plantFlower', (flower: FlowerPacket) => {
-      //console.log("Client planted flower");
-      io.sockets.emit('addFlowers', [flower]);
-      addNewFlowers([flower], db, flowerField);
-    });
+    socket.on('message_player_update', (message: protocol.message_player_update) => {
+      // get flowers within message.current_radius of message.current_location
+      let new_flower_ids = flowers_by_location.get_flowers(message.current_location, message.current_radius);
+      // if message.full_update, just send all those flowers
+      if (message.full_update) {
+        // create an array of new flowers with new_flower_ids and meshes
+        socket.emit('message_server_update', {
+          new_flowers: new_flowers,
+          expired_flower_ids: new Array<string>(),
+          // where did we think the client was when this update was prepared
+          player_location: message.current_location,
+          update_time: get_current_time()
+        });
+      }
+      // get flowers within message.previous_radius of message.previous_location
+      // find all previous_flowers not in current_flowers
+    }
 
     socket.on('disconnect', () => {
         console.log("Client id", socket.id, "disconnected");
@@ -151,29 +146,28 @@ OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => {
   server.listen(port, () => {
     return console.log(`server is listening on ${port}`);
   });
-  
 },
   // database default contents
   { flowers: [] }
 );
 
 // Initiate interactive CLI
-vorpal
-  .command('erase', 'Erase flower database and reset.')
-  .action(function(args, callback) {
-    if (flowerDatabase) {
-      flowerDatabase.erase();
-      this.log('Flower database wiped.');
-    }
-    callback();
-  });
-vorpal
-  .command('backup', 'Save a copy of the database with date and time.')
-  .action(function(args, callback) {
-    if (flowerDatabase) {
-      flowerDatabase.save('database.backup');
-      this.log('Flower database backed up.');
-    }
-    callback();
-  });
-vorpal.delimiter('server$').show();
+// vorpal
+//   .command('erase', 'Erase flower database and reset.')
+//   .action(function(args, callback) {
+//     if (flowerDatabase) {
+//       flowerDatabase.erase();
+//       this.log('Flower database wiped.');
+//     }
+//     callback();
+//   });
+// vorpal
+//   .command('backup', 'Save a copy of the database with date and time.')
+//   .action(function(args, callback) {
+//     if (flowerDatabase) {
+//       flowerDatabase.save('database.backup');
+//       this.log('Flower database backed up.');
+//     }
+//     callback();
+//   });
+// vorpal.delimiter('server$').show();
