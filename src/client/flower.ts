@@ -12,7 +12,8 @@ import {
     VertexBuffer,
     Vector2,
     Ray,
-    InstancedMesh
+    InstancedMesh,
+    IndicesArray
 } from "@babylonjs/core";
 
 import { FlowerGenome } from '../common/flowerGenome';
@@ -89,7 +90,6 @@ class Petal {
         this.mesh = new Mesh(name);
 
         let vertexData = new VertexData();
-
         vertexData.positions = this.vertices;
         vertexData.indices = this.indices;
         vertexData.colors = this.colors;

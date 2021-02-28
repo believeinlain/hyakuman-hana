@@ -4,152 +4,62 @@ import http from 'http';
 const app = express();
 const server = http.createServer(app);
 const io = require('socket.io')(server, {
-  cors: {
-    origin: "http://localhost:8080",
-    methods: ["GET", "POST"]
-  }
+    cors: {
+        origin: "http://localhost:8080",
+        methods: ["GET", "POST"]
+    }
 });
 const port = 3000;
 
 // Interactive CLI for server
-var vorpal = require('vorpal')();
+// var vorpal = require('vorpal')();
 
 app.use(express.static('public'));
 
 import { Socket } from 'socket.io';
-import { FlowerDatabaseInstance, OpenFlowerDatabase } from './flowerDatabase'
+import { FlowerField } from './flowerField'
 
-import { v4 as uuidv4 } from 'uuid';
-
-import { FlowerLocations } from '../common/flowerLocations';
-import { FlowerPacket } from '../common/flowerPacket';
-import { FlowerGenome } from '../common/flowerGenome';
 import * as protocol from '../common/protocol';
+import { FlowerData } from '../common/flowerData';
 
 // Default server parameters
-const serverParameters = {
-  flowerRange: 25,
-  flowerExclusionRange: 0.5,
-  flowerSpreadInterval: 10000,
-  flowerSpreadFraction: 1,
-  maxFlowerUpdates: 10
-}
+const player_radius = 25;
+const flower_radius = 0.5;
+const mutation_interval = 10000;
+const mutation_num = 10;
+const field_width = 1000;
+const field_height = 1000;
 
-/* Randomize array in-place using Durstenfeld shuffle algorithm */
-function shuffleArray(array: any[]) {
-  for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-  }
-}
+const flowerField = new FlowerField(field_width, field_height);
 
-// add new flowers to the field and find flowers to delete
-function addNewFlowers(flowers: FlowerPacket[], db: FlowerDatabaseInstance, field: FlowerLocations) {
-  
-  // add them to the database
-  db.addFlowers(flowers);
-  // add them to the quadtree
-  let toRemove = field.addFlowers(flowers, serverParameters.flowerExclusionRange);
+// no need to wait for database to init, since it will buffer requests
+flowerField.initialize();
 
-  // send a list of names for flowers to remove
-  if (toRemove.length > 0) {
-    io.sockets.emit('deleteFlowers', toRemove);
-  } 
-  
-  // remove all flowers to remove from the database
-  db.removeFlowers(toRemove);
-}
+// Set interval to spread flowers
+setInterval( async () => {
+    // mutate flowers
+    let {added, removed} = await flowerField.mutateFlowers(mutation_num, flower_radius);
 
-// global database for access by CLI
-var flowerDatabase: FlowerDatabaseInstance = null;
+    //TODO: send update to clients
+    
+}, mutation_interval);
 
-OpenFlowerDatabase('database/db.json', (db: FlowerDatabaseInstance) => 
-{
-  console.log("\rDatabase is ready.");
-  flowerDatabase = db;
-
-  // wrapper for the quadtree of flowers
-  var flowerField = new FlowerLocations();
-
-  // Load all of the flower ids into the quadtree
-  flowerField.addFlowers(db.getAllFlowers());
-
-  // Set interval to spread flowers
-  setInterval( () => {
-    // select flowers to update
-    let allFlowerIDs = flowerField.quadtree.getAllPoints().map(point => point.data);
-    let rootSelection = allFlowerIDs.filter(id => Math.random() < serverParameters.flowerSpreadFraction);
-    // shuffle the update selection
-    shuffleArray(rootSelection);
-    // only update up to maxFlowerUpdates different flowers
-    rootSelection = rootSelection.slice(0, serverParameters.maxFlowerUpdates);
-    // spread
-    rootSelection.forEach( flowerID => {
-      let rootInstance = db.getFlower(flowerID);
-      // create two new flowers for each
-      // TODO: flowers can overlap if new angles are close - fix this
-      if (rootInstance) {
-        let newFlowers = new Array<FlowerPacket>();
-        let randomAngle = Math.random() * Math.PI * 2;
-        for (let i=0; i<2; i++) {
-          let offsetX = Math.cos(randomAngle+i*Math.PI/2)*serverParameters.flowerExclusionRange*1.1;
-          let offsetY = Math.sin(randomAngle+i*Math.PI/2)*serverParameters.flowerExclusionRange*1.1;
-          let newInstance = new FlowerPacket(
-            uuidv4(), 
-            {
-              x: rootInstance.location.x+offsetX,
-              y: rootInstance.location.y+offsetY
-            },
-            FlowerGenome.mutate(rootInstance.genome)
-          );
-          newFlowers.push(newInstance);
-        }
-        // send instances for the flowers to send
-        io.sockets.emit('addFlowers', newFlowers);
-        // add new flowers to flowerfield and database and determine flowers to remove
-        addNewFlowers(newFlowers, db, flowerField);
-      }
-    });
-  }, serverParameters.flowerSpreadInterval);
-
-  // handle client connections once db is loaded
-  io.on('connection', (socket: Socket) => {
+// handle client connections 
+io.on('connection', (socket: Socket) => {
     // new client has connected
     console.log("New connection from", socket.handshake.address, ", id:", socket.id);
     console.log("Total connections:", io.engine.clientsCount);
 
-    socket.on('message_player_update', (message: protocol.message_player_update) => {
-      // get flowers within message.current_radius of message.current_location
-      let new_flower_ids = flowers_by_location.get_flowers(message.current_location, message.current_radius);
-      // if message.full_update, just send all those flowers
-      if (message.full_update) {
-        // create an array of new flowers with new_flower_ids and meshes
-        socket.emit('message_server_update', {
-          new_flowers: new_flowers,
-          expired_flower_ids: new Array<string>(),
-          // where did we think the client was when this update was prepared
-          player_location: message.current_location,
-          update_time: get_current_time()
-        });
-      }
-      // get flowers within message.previous_radius of message.previous_location
-      // find all previous_flowers not in current_flowers
-    }
-
     socket.on('disconnect', () => {
         console.log("Client id", socket.id, "disconnected");
         console.log("Total connections", io.engine.clientsCount);
-    })
-  });
-}, ()=> {
-  // Open server for connections
-  server.listen(port, () => {
+    });
+});
+
+// Open server for connections
+server.listen(port, () => {
     return console.log(`server is listening on ${port}`);
-  });
-},
-  // database default contents
-  { flowers: [] }
-);
+});
 
 // Initiate interactive CLI
 // vorpal
