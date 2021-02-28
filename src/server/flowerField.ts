@@ -1,9 +1,8 @@
 
 import { QuadTree, Box, Point, Circle } from 'js-quadtree';
 import { FlowerData } from '../common/flowerData';
-import { FlowerGenome } from './flowerGenome'
+import { FlowerGenome } from '../common/flowerGenome'
 import { Database } from './database';
-import { assert } from 'console';
 
 export class FlowerField {
     flower_locations: QuadTree;

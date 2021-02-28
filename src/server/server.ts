@@ -60,24 +60,3 @@ io.on('connection', (socket: Socket) => {
 server.listen(port, () => {
     return console.log(`server is listening on ${port}`);
 });
-
-// Initiate interactive CLI
-// vorpal
-//   .command('erase', 'Erase flower database and reset.')
-//   .action(function(args, callback) {
-//     if (flowerDatabase) {
-//       flowerDatabase.erase();
-//       this.log('Flower database wiped.');
-//     }
-//     callback();
-//   });
-// vorpal
-//   .command('backup', 'Save a copy of the database with date and time.')
-//   .action(function(args, callback) {
-//     if (flowerDatabase) {
-//       flowerDatabase.save('database.backup');
-//       this.log('Flower database backed up.');
-//     }
-//     callback();
-//   });
-// vorpal.delimiter('server$').show();

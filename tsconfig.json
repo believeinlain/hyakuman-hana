@@ -1,7 +1,7 @@
 // tsconfig is used for the server distribution
 {
     "compilerOptions": {
-        "target": "es2017",
+        "target": "es5",
         "module": "commonjs",
         "outDir": "dist",
         "sourceMap": true,

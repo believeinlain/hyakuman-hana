@@ -290,40 +290,41 @@ export class FlowerGenome implements GeneSequence {
 
         // lay out the petal vertices
         let teardropScale = g.petalLength.value * g.teardropShape.value;
-        let petalBase = [0, 0, 0];
-        let petalCenter = [0, teardropScale, 0];
-        let petalTip = [0, g.petalLength.value, 0];
-        let petalLeft = [-g.petalWidth.value / 2, teardropScale, 0];
-        let petalRight = [g.petalWidth.value / 2, teardropScale, 0];
+        let stemLength = g.stemLength.value * 0.2;
+        let petalBase = matrix([0, stemLength, 0]);
+        let petalCenter = matrix([0, stemLength, teardropScale]);
+        let petalTip = matrix([0, stemLength, g.petalLength.value]);
+        let petalLeft = matrix([-g.petalWidth.value / 2, stemLength, teardropScale]);
+        let petalRight = matrix([g.petalWidth.value / 2, stemLength, teardropScale]);
 
         // determine the amount of curl for different parts
-        let tipAngle = pi * g.petalTipCurl.value;
-        let centerAngle = pi * g.petalCenterCurl.value;
-        let curlAngle = pi * g.petalCurl.value;
+        let tipAngle = -g.petalTipCurl.value;
+        let centerAngle = -g.petalCenterCurl.value;
+        let curlAngle = -g.petalCurl.value;
 
         // rotate the vertices to curl the petal
-        petalTip = multiply(petalTip, rotate_x(tipAngle));
-        petalCenter = multiply(petalCenter, rotate_x(centerAngle));
-        petalLeft = multiply(petalLeft, rotate_y(curlAngle));
-        petalRight = multiply(petalRight, rotate_y(-curlAngle));
+        petalTip = multiply(rotate_x(tipAngle), petalTip);
+        petalCenter = multiply(rotate_x(centerAngle), petalCenter);
+        petalLeft = multiply(rotate_z(curlAngle), petalLeft);
+        petalRight = multiply(rotate_z(-curlAngle), petalRight);
 
         // rotate the whole petal inwards
-        let closedAngle = pi * g.flowerClosed.value;
-        petalTip = multiply(petalTip, rotate_x(closedAngle));
-        petalCenter = multiply(petalCenter, rotate_x(closedAngle));
-        petalLeft = multiply(petalLeft, rotate_x(closedAngle));
-        petalRight = multiply(petalRight, rotate_x(closedAngle));
+        let closedAngle = pi*-g.flowerClosed.value;
+        petalTip = multiply(rotate_x(closedAngle), petalTip);
+        petalCenter = multiply(rotate_x(closedAngle), petalCenter);
+        petalLeft = multiply(rotate_x(closedAngle), petalLeft);
+        petalRight = multiply(rotate_x(closedAngle), petalRight);
 
         // scale the petal
-        let s = g.petalScale.value;
-        petalCenter = multiply(petalCenter, scale(s, s, s));
-        petalTip = multiply(petalCenter, scale(s, s, s));
-        petalLeft = multiply(petalCenter, scale(s, s, s));
-        petalRight = multiply(petalCenter, scale(s, s, s));
+        let s = g.petalSize.value;
+        petalCenter = multiply(scale(s, s, s), petalCenter);
+        petalTip = multiply(scale(s, s, s), petalTip);
+        petalLeft = multiply(scale(s, s, s), petalLeft);
+        petalRight = multiply(scale(s, s, s), petalRight);
 
         // get angle for each petal
         let numPetals = round(g.numPetals.value);
-        let petalAngle = (2 * pi) / numPetals;
+        let petalAngle = 2*pi / numPetals;
 
         // define colors for each vert
         let hue = g.petalHue.value;
@@ -351,9 +352,11 @@ export class FlowerGenome implements GeneSequence {
         }
 
         // clone and rotate all petals
+        // 12 = 3 verts/face * 4 faces * 1 index/point
         // 36 = 3 verts/face * 4 faces * 3 floats/point
         // 48 = 3 verts/face * 4 faces * 4 floats/point
         // 24 = 3 verts/face * 4 faces * 2 floats/point
+        let ip = 12;
         let vp = 36;
         let cp = 48;
         let up = 24;
@@ -364,77 +367,89 @@ export class FlowerGenome implements GeneSequence {
         let uvs = new Array<number>(up * numPetals);
         let normals = new Array<number>(np * numPetals);
         let face_normal: number[];
+
         for (let i = 0; i < numPetals; i++) {
+            // convert verts to number arrays
+            let base = petalBase.toArray() as number[];
+            let center = petalCenter.toArray() as number[];
+            let right = petalRight.toArray() as number[];
+            let left = petalLeft.toArray() as number[];
+            let tip = petalTip.toArray() as number[];
+
             // place verts, colors, and uvs into respective arrays
-            petals.splice(0 + i * vp, 3, ...petalBase);
+            petals.splice(0 + i * vp, 3, ...base);
             colors.splice(0 + i * cp, 4, ...colorBase);
             uvs.splice(0 + i * up, 2, ...uvBase);
-            petals.splice(3 + i * vp, 3, ...petalRight);
+            petals.splice(3 + i * vp, 3, ...right);
             colors.splice(4 + i * cp, 4, ...colorRight);
             uvs.splice(2 + i * up, 2, ...uvRight);
-            petals.splice(6 + i * vp, 3, ...petalCenter);
+            petals.splice(6 + i * vp, 3, ...center);
             colors.splice(8 + i * cp, 4, ...colorCenter);
             uvs.splice(4 + i * up, 2, ...uvCenter);
-            face_normal = get_normal(petalBase, petalRight, petalCenter);
+            face_normal = get_normal(base, right, center);
             normals.splice(0 + i * np, 3, ...face_normal);
             normals.splice(3 + i * np, 3, ...face_normal);
             normals.splice(6 + i * np, 3, ...face_normal);
 
-            petals.splice(9 + i * vp, 3, ...petalRight);
+            petals.splice(9 + i * vp, 3, ...right);
             colors.splice(12 + i * cp, 4, ...colorRight);
             uvs.splice(6 + i * up, 2, ...uvRight);
-            petals.splice(12 + i * vp, 3, ...petalTip);
+            petals.splice(12 + i * vp, 3, ...tip);
             colors.splice(16 + i * cp, 4, ...colorTip);
             uvs.splice(8 + i * up, 2, ...uvTip);
-            petals.splice(15 + i * vp, 3, ...petalCenter);
+            petals.splice(15 + i * vp, 3, ...center);
             colors.splice(20 + i * cp, 4, ...colorCenter);
             uvs.splice(10 + i * up, 2, ...uvCenter);
-            face_normal = get_normal(petalRight, petalTip, petalCenter);
+            face_normal = get_normal(right, tip, center);
             normals.splice(9 + i * np, 3, ...face_normal);
             normals.splice(12 + i * np, 3, ...face_normal);
             normals.splice(15 + i * np, 3, ...face_normal);
 
-            petals.splice(18 + i * vp, 3, ...petalTip);
+            petals.splice(18 + i * vp, 3, ...tip);
             colors.splice(24 + i * cp, 4, ...colorTip);
             uvs.splice(12 + i * up, 2, ...uvTip);
-            petals.splice(21 + i * vp, 3, ...petalLeft);
+            petals.splice(21 + i * vp, 3, ...left);
             colors.splice(28 + i * cp, 4, ...colorLeft);
             uvs.splice(14 + i * up, 2, ...uvLeft);
-            petals.splice(24 + i * vp, 3, ...petalCenter);
+            petals.splice(24 + i * vp, 3, ...center);
             colors.splice(32 + i * cp, 4, ...colorCenter);
             uvs.splice(16 + i * up, 2, ...uvCenter);
-            face_normal = get_normal(petalTip, petalLeft, petalCenter);
+            face_normal = get_normal(tip, left, center);
             normals.splice(18 + i * np, 3, ...face_normal);
             normals.splice(21 + i * np, 3, ...face_normal);
             normals.splice(24 + i * np, 3, ...face_normal);
 
-            petals.splice(27 + i * vp, 3, ...petalLeft);
+            petals.splice(27 + i * vp, 3, ...left);
             colors.splice(36 + i * cp, 4, ...colorLeft);
             uvs.splice(18 + i * up, 2, ...uvLeft);
-            petals.splice(30 + i * vp, 3, ...petalBase);
+            petals.splice(30 + i * vp, 3, ...base);
             colors.splice(40 + i * cp, 4, ...colorBase);
             uvs.splice(20 + i * up, 2, ...uvBase);
-            petals.splice(33 + i * vp, 3, ...petalCenter);
+            petals.splice(33 + i * vp, 3, ...center);
             colors.splice(44 + i * cp, 4, ...colorCenter);
             uvs.splice(22 + i * up, 2, ...uvCenter);
-            face_normal = get_normal(petalLeft, petalBase, petalCenter);
+            face_normal = get_normal(left, base, center);
             normals.splice(27 + i * np, 3, ...face_normal);
             normals.splice(30 + i * np, 3, ...face_normal);
             normals.splice(33 + i * np, 3, ...face_normal);
 
             // rotate the next petal
-            petalTip = multiply(petalTip, rotate_z(i * petalAngle));
-            petalCenter = multiply(petalCenter, rotate_z(i * petalAngle));
-            petalLeft = multiply(petalLeft, rotate_z(i * petalAngle));
-            petalRight = multiply(petalRight, rotate_z(i * petalAngle));
+            petalTip = multiply(rotate_y(petalAngle), petalTip);
+            petalCenter = multiply(rotate_y(petalAngle), petalCenter);
+            petalLeft = multiply(rotate_y(petalAngle), petalLeft);
+            petalRight = multiply(rotate_y(petalAngle), petalRight);
         }
 
-        return {
+        let buffers = {
             positions: Float32Array.from(petals),
-            indices: Uint16Array.from(petals.keys()),
+            indices: Uint16Array.from(Array(ip*numPetals).keys()),
             colors: Float32Array.from(colors),
             uvs: Float32Array.from(uvs),
             normals: Float32Array.from(normals),
         };
+        
+        console.log(buffers);
+
+        return buffers;
     }
 }

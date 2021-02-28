@@ -12,14 +12,11 @@ import {
     MeshBuilder,
     Space,
     StandardMaterial,
-    Texture,
-    Vector2
+    Texture
 } from "@babylonjs/core";
 
+import { FlowerData, MeshData } from '../common/flowerData'
 import { FlowerGenome } from '../common/flowerGenome';
-import { FlowerField } from './flowerField';
-import { FlowerPacket } from '../common/flowerPacket';
-import { PositionUpdate, ServerParameters } from '../common/protocol';
 import { Flower } from "./flower";
 import { Terrain } from "./terrain";
 import { Player } from "./player";
@@ -29,8 +26,6 @@ import io from 'socket.io-client'
 class App {
 
     player: Player;
-    serverParameters: ServerParameters;
-    flowerField: FlowerField;
     socket: SocketIOClient.Socket;
 
     constructor() {
@@ -105,54 +100,44 @@ class App {
         });
 
         // connect to the server
-        this.socket = io("http://127.0.0.1:3000");
+        // this.socket = io("http://127.0.0.1:3000");
 
         // send initial message on connecting
-        this.socket.on('connect', () => {
-            console.log("Connected to server");
-            this.socket.emit('init');
-        });
-        // update server parameters
-        this.socket.on('config', (data: ServerParameters) => {
-            console.log("Received config from server");
-            this.serverParameters = data;
-        });
+        // this.socket.on('connect', () => {
+        //     console.log("Connected to server");
+        //     this.socket.emit('init');
+        // });
 
         // make the terrain
         new Terrain(scene, ()=>{
             // send position update once terrain is loaded
             console.log("Terrain loaded");
-            let positionUpdate: PositionUpdate = {position: {x: 0, y: 0}, loadedFlowerIDs: []}
-            this.socket.emit('positionUpdate', positionUpdate);
+            // let positionUpdate: PositionUpdate = {position: {x: 0, y: 0}, loadedFlowerIDs: []}
+            // this.socket.emit('positionUpdate', positionUpdate);
+
+            let new_genome = new FlowerGenome();
+            let test_data = new FlowerData(new_genome, 0, 0);
+            let flower = new Flower(test_data, scene);
         });
 
-        // create new instances for each flower if necessary
-        this.socket.on('addFlowers', (flowers: FlowerPacket[]) => {
-            // add each flower in range of player to the field
-            // TODO: figure out what to do if we get flowers without serverParameters
-            this.flowerField.addFlowers(flowers);
-        });
         // if the server removes flowers, delete them
-        this.socket.on('deleteFlowers', (flowerIDs: string[]) => {
-            // remove each flower from scene
-            this.flowerField.removeFlowers(flowerIDs);
-        });
+        // this.socket.on('deleteFlowers', (flowerIDs: string[]) => {
+        //     // remove each flower from scene
+        //     this.flowerField.removeFlowers(flowerIDs);
+        // });
         // let player create flowers
-        window.addEventListener("click", (event) => {
-            let pickResult = scene.pick(event.clientX, event.clientY);
-            if (pickResult.hit) {
-                if (pickResult.pickedMesh.name == 'terrain') {
-                    let newFlower = this.player.plantFlower(pickResult.pickedPoint);
-                    this.socket.emit('plantFlower', newFlower.info);
-                    this.flowerField.addFlowers([newFlower.info]);
-                } else if (pickResult.pickedMesh.metadata instanceof Flower) {
-                    this.player.pickFlower(pickResult.pickedMesh.metadata.info.genome);
-                }
-            }
-        });
-
-        // quadtree to keep the flower ids in
-        this.flowerField = new FlowerField(scene);
+        // window.addEventListener("click", (event) => {
+        //     let pickResult = scene.pick(event.clientX, event.clientY);
+        //     if (pickResult.hit) {
+        //         if (pickResult.pickedMesh.name == 'terrain') {
+        //             // let newFlower = this.player.plantFlower(pickResult.pickedPoint);
+        //             // this.socket.emit('plantFlower', newFlower.info);
+        //             // this.flowerField.addFlowers([newFlower.info]);
+        //         } else if (pickResult.pickedMesh.metadata instanceof Flower) {
+        //             // this.player.pickFlower(pickResult.pickedMesh.metadata.info.genome);
+        //         }
+        //     }
+        // });
 
         // run the main render loop
         engine.runRenderLoop(() => {
@@ -160,14 +145,14 @@ class App {
 
             // send position updates periodically
             if (this.player.movedPastThreshold()) {
-                let positionUpdate: PositionUpdate = {
-                    position: {
-                        x:this.player.latestPositionUpdate.x, 
-                        y:this.player.latestPositionUpdate.z // x,y position on terrain uses z
-                    },
-                    loadedFlowerIDs: this.flowerField.getAllFlowerIDs()
-                };
-                this.socket.emit('positionUpdate', positionUpdate);
+                // let positionUpdate: PositionUpdate = {
+                //     position: {
+                //         x:this.player.latestPositionUpdate.x, 
+                //         y:this.player.latestPositionUpdate.z // x,y position on terrain uses z
+                //     },
+                //     loadedFlowerIDs: this.flowerField.getAllFlowerIDs()
+                // };
+                // this.socket.emit('positionUpdate', positionUpdate);
             }
         });
 
