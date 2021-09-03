@@ -1,7 +1,7 @@
 # 百万花
 Interactive art project about asynchronous nonverbal communication and artificial selection.
 
-install dependencies:  
+install dependencies:
 `npm install`
 
 build and start server:
